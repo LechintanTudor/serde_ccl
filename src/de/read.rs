@@ -1,6 +1,6 @@
 use crate::parser::Position;
 use crate::Result;
-use std::io;
+use std::io::{self, Bytes};
 
 pub(crate) trait Read {
     fn next(&mut self) -> Result<Option<u8>>;
@@ -16,14 +16,17 @@ pub(crate) trait Read {
 
 #[must_use]
 pub(crate) struct IoRead<R> {
-    reader: R,
-    peeked: Option<u8>,
+    bytes: Bytes<R>,
+    peeked: Option<Option<u8>>,
 }
 
 impl<R> IoRead<R> {
-    pub fn new(reader: R) -> Self {
+    pub fn new(reader: R) -> Self
+    where
+        R: io::Read,
+    {
         Self {
-            reader,
+            bytes: reader.bytes(),
             peeked: None,
         }
     }
@@ -34,15 +37,30 @@ where
     R: io::Read,
 {
     fn next(&mut self) -> Result<Option<u8>> {
-        if let Some(byte) = self.peeked.take() {
-            return Ok(Some(byte));
+        if let Some(peeked) = self.peeked.take() {
+            return Ok(peeked);
         }
 
-        todo!()
+        match self.bytes.next() {
+            Some(Ok(b)) => Ok(Some(b)),
+            Some(Err(e)) => Err(e.into()),
+            None => Ok(None),
+        }
     }
 
     fn peek(&mut self) -> Result<Option<u8>> {
-        todo!()
+        if let Some(peeked) = self.peeked {
+            return Ok(peeked);
+        }
+
+        let peeked = match self.bytes.next() {
+            Some(Ok(b)) => Some(b),
+            Some(Err(e)) => return Err(e.into()),
+            None => None,
+        };
+
+        self.peeked = Some(peeked);
+        Ok(peeked)
     }
 
     fn position(&self) -> Position {

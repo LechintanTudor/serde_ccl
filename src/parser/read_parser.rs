@@ -6,7 +6,7 @@ use core::str;
 #[must_use]
 pub(crate) struct ReadParser<R> {
     reader: R,
-    last_key_indent: Option<u32>,
+    last_key_indent: u32,
     indent_state: IndentState,
 }
 
@@ -14,7 +14,7 @@ impl<R> ReadParser<R> {
     pub fn new(reader: R) -> Self {
         Self {
             reader,
-            last_key_indent: None,
+            last_key_indent: 0,
             indent_state: IndentState::Start(0),
         }
     }
@@ -27,7 +27,7 @@ where
     fn parse_key<'s>(&'s mut self, scratch: &'s mut Vec<u8>) -> Result<Reference<'a, 's, str>> {
         if let IndentState::Start(indent) = self.skip_whitespace(scratch)? {
             self.indent_state = IndentState::Middle;
-            self.last_key_indent = Some(indent);
+            self.last_key_indent = indent;
         }
 
         scratch.clear();
@@ -59,7 +59,7 @@ where
         'main: loop {
             match self.skip_whitespace(scratch)? {
                 IndentState::Start(indent) => {
-                    if indent <= self.last_key_indent.unwrap_or(0) {
+                    if indent <= self.last_key_indent {
                         break;
                     }
 
@@ -118,6 +118,6 @@ where
     }
 
     fn last_key_indent(&self) -> u32 {
-        todo!()
+        self.last_key_indent
     }
 }

@@ -4,6 +4,7 @@ use core::fmt;
 use core::num::{ParseFloatError, ParseIntError};
 use core::str::{ParseBoolError, Utf8Error};
 use serde::de;
+use std::io;
 
 pub type Result<T> = ::core::result::Result<T, Error>;
 
@@ -80,5 +81,11 @@ impl From<ParseFloatError> for Error {
 impl From<ParseCharError> for Error {
     fn from(error: ParseCharError) -> Self {
         Self::ParseChar(error)
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(error: io::Error) -> Self {
+        todo!()
     }
 }

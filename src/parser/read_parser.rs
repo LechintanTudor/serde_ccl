@@ -117,7 +117,7 @@ where
         Ok(self.indent_state)
     }
 
-    fn last_key_indent(&self) -> Option<u32> {
-        self.last_key_indent
+    fn last_key_indent(&self) -> u32 {
+        todo!()
     }
 }

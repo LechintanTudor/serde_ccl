@@ -18,9 +18,10 @@ pub(crate) trait Parser<'a> {
     fn skip_whitespace(&mut self, scratch: &mut Vec<u8>) -> Result<IndentState>;
 
     #[must_use]
-    fn last_key_indent(&self) -> Option<u32>;
+    fn last_key_indent(&self) -> u32;
 }
 
+#[derive(Debug)]
 pub(crate) enum Reference<'b, 'c, T>
 where
     T: ?Sized,

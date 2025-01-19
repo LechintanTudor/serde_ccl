@@ -5,6 +5,7 @@ use serde::de;
 #[must_use]
 pub(crate) struct Deserializer<P> {
     parser: P,
+    is_first: bool,
     scratch: Vec<u8>,
     should_parse_value: bool,
 }
@@ -16,6 +17,7 @@ where
     pub fn new(parser: P) -> Self {
         Self {
             parser,
+            is_first: true,
             scratch: Vec::new(),
             should_parse_value: false,
         }
@@ -46,6 +48,32 @@ where
 pub struct KeyValueAccess<'a, P> {
     deserializer: &'a mut Deserializer<P>,
     key_indent: u32,
+}
+
+impl<'a, 'b, P> KeyValueAccess<'a, P>
+where
+    P: Parser<'b>,
+{
+    pub fn new(deserializer: &'a mut Deserializer<P>) -> Self {
+        let key_indent = deserializer.parser.last_key_indent();
+
+        let key_indent = if deserializer.is_first {
+            deserializer.is_first = false;
+
+            if key_indent == 0 {
+                0
+            } else {
+                key_indent + 1
+            }
+        } else {
+            key_indent + 1
+        };
+
+        Self {
+            deserializer,
+            key_indent,
+        }
+    }
 }
 
 impl<'de, P> de::MapAccess<'de> for KeyValueAccess<'_, P>
@@ -113,6 +141,57 @@ where
     }
 }
 
+impl<'de, 'a, P> de::EnumAccess<'de> for KeyValueAccess<'a, P>
+where
+    P: Parser<'de> + 'a,
+{
+    type Error = Error;
+
+    type Variant = Self;
+
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant)>
+    where
+        V: de::DeserializeSeed<'de>,
+    {
+        self.deserializer.should_parse_value = false;
+        let key = seed.deserialize(&mut *self.deserializer)?;
+        Ok((key, KeyValueAccess::new(&mut *self.deserializer)))
+    }
+}
+
+impl<'de, 'a, P> de::VariantAccess<'de> for KeyValueAccess<'a, P>
+where
+    P: Parser<'de> + 'a,
+{
+    type Error = Error;
+
+    fn unit_variant(self) -> Result<()> {
+        self.deserializer.parse_value()?;
+        Ok(())
+    }
+
+    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value>
+    where
+        T: de::DeserializeSeed<'de>,
+    {
+        seed.deserialize(self.deserializer)
+    }
+
+    fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        de::Deserializer::deserialize_seq(self.deserializer, visitor)
+    }
+
+    fn struct_variant<V>(self, _fields: &'static [&'static str], visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        de::Deserializer::deserialize_map(self.deserializer, visitor)
+    }
+}
+
 impl<'de, P> de::Deserializer<'de> for &mut Deserializer<P>
 where
     P: Parser<'de>,
@@ -123,7 +202,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        self.deserialize_map(visitor)
+        self.deserialize_str(visitor)
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
@@ -238,11 +317,21 @@ where
         self.deserialize_seq(visitor)
     }
 
-    fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!()
+        let is_some = match self.skip_whitespace()? {
+            IndentState::Start(indent) => indent > self.parser.last_key_indent(),
+            IndentState::Middle => true,
+            IndentState::Eof => false,
+        };
+
+        if is_some {
+            visitor.visit_some(self)
+        } else {
+            visitor.visit_none()
+        }
     }
 
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
@@ -270,10 +359,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_seq(KeyValueAccess {
-            key_indent: self.parser.last_key_indent().map_or(0, |i| i + 1),
-            deserializer: self,
-        })
+        visitor.visit_seq(KeyValueAccess::new(self))
     }
 
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
@@ -299,10 +385,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_seq(KeyValueAccess {
-            key_indent: self.parser.last_key_indent().map_or(0, |i| i + 1),
-            deserializer: self,
-        })
+        visitor.visit_map(KeyValueAccess::new(self))
     }
 
     fn deserialize_struct<V>(
@@ -314,22 +397,22 @@ where
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_map(KeyValueAccess {
-            key_indent: self.parser.last_key_indent().map_or(0, |i| i + 1),
-            deserializer: self,
-        })
+        visitor.visit_map(KeyValueAccess::new(self))
     }
 
     fn deserialize_enum<V>(
         self,
         _name: &'static str,
         _variants: &'static [&'static str],
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!()
+        visitor.visit_enum(KeyValueAccess {
+            key_indent: self.parser.last_key_indent(),
+            deserializer: self,
+        })
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>

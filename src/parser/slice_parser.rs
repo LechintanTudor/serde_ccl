@@ -6,7 +6,7 @@ use core::str;
 pub(crate) struct SliceParser<'a> {
     data: &'a [u8],
     index: usize,
-    last_key_indent: Option<u32>,
+    last_key_indent: u32,
     indent_state: IndentState,
 }
 
@@ -15,7 +15,7 @@ impl<'a> SliceParser<'a> {
         Self {
             data,
             index: 0,
-            last_key_indent: None,
+            last_key_indent: 0,
             indent_state: IndentState::Start(0),
         }
     }
@@ -23,7 +23,7 @@ impl<'a> SliceParser<'a> {
     pub fn parse_key_raw(&mut self) -> Result<&'a [u8]> {
         if let IndentState::Start(indent) = self.skip_whitespace_raw() {
             self.indent_state = IndentState::Middle;
-            self.last_key_indent = Some(indent);
+            self.last_key_indent = indent;
         }
 
         let key_start = self.index;
@@ -54,7 +54,7 @@ impl<'a> SliceParser<'a> {
         while self.index < self.data.len() {
             match self.skip_whitespace_raw() {
                 IndentState::Start(indent) => {
-                    if indent <= self.last_key_indent.unwrap_or(0) {
+                    if indent <= self.last_key_indent {
                         break;
                     }
 
@@ -133,7 +133,7 @@ impl<'a> Parser<'a> for SliceParser<'a> {
         Ok(self.skip_whitespace_raw())
     }
 
-    fn last_key_indent(&self) -> Option<u32> {
+    fn last_key_indent(&self) -> u32 {
         self.last_key_indent
     }
 }

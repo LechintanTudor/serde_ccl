@@ -32,7 +32,7 @@ impl<'a> Parser<'a> for StrParser<'a> {
         Ok(self.delegate.skip_whitespace_raw())
     }
 
-    fn last_key_indent(&self) -> Option<u32> {
+    fn last_key_indent(&self) -> u32 {
         self.delegate.last_key_indent()
     }
 }

@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+memchr = "2.7"
 serde = { version = "1.0", default-features = false }
 
 [dev-dependencies]

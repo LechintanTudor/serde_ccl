@@ -1,6 +1,6 @@
 use crate::de::Read;
-use crate::error::{Error, Result};
-use crate::parser::{IndentState, Parser, Reference};
+use crate::error::Result;
+use crate::parser::{IndentState, Parser, Position, Reference};
 use core::str;
 
 #[must_use]
@@ -24,7 +24,12 @@ impl<'a, R> Parser<'a> for ReadParser<R>
 where
     R: Read,
 {
-    fn parse_key<'s>(&'s mut self, scratch: &'s mut Vec<u8>) -> Result<Reference<'a, 's, str>> {
+    type Bookmark = Position;
+
+    fn parse_key<'s>(
+        &'s mut self,
+        scratch: &'s mut Vec<u8>,
+    ) -> Result<(Self::Bookmark, Reference<'a, 's, str>)> {
         if let IndentState::Start(indent) = self.skip_whitespace(scratch)? {
             self.indent_state = IndentState::Middle;
             self.last_key_indent = indent;
@@ -48,12 +53,13 @@ where
         let eq = self.reader.next()?;
         assert_eq!(eq, Some(b'='));
 
-        str::from_utf8(scratch)
-            .map(|s| Reference::Copied(s.trim()))
-            .map_err(Error::from)
+        todo!()
     }
 
-    fn parse_value<'s>(&'s mut self, scratch: &'s mut Vec<u8>) -> Result<Reference<'a, 's, str>> {
+    fn parse_value<'s>(
+        &'s mut self,
+        scratch: &'s mut Vec<u8>,
+    ) -> Result<(Self::Bookmark, Reference<'a, 's, str>)> {
         scratch.clear();
 
         'main: loop {
@@ -84,9 +90,7 @@ where
             }
         }
 
-        str::from_utf8(scratch)
-            .map(|s| Reference::Copied(s.trim()))
-            .map_err(Error::from)
+        todo!()
     }
 
     fn skip_whitespace(&mut self, scratch: &mut Vec<u8>) -> Result<IndentState> {
@@ -119,5 +123,9 @@ where
 
     fn last_key_indent(&self) -> u32 {
         self.last_key_indent
+    }
+
+    fn position_of_bookmark(&self, bookmark: Self::Bookmark) -> Position {
+        bookmark
     }
 }

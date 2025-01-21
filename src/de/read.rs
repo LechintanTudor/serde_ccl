@@ -43,7 +43,7 @@ where
 
         match self.bytes.next() {
             Some(Ok(b)) => Ok(Some(b)),
-            Some(Err(e)) => Err(e.into()),
+            Some(Err(e)) => todo!(),
             None => Ok(None),
         }
     }
@@ -55,7 +55,7 @@ where
 
         let peeked = match self.bytes.next() {
             Some(Ok(b)) => Some(b),
-            Some(Err(e)) => return Err(e.into()),
+            Some(Err(e)) => todo!(),
             None => None,
         };
 

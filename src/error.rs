@@ -1,22 +1,38 @@
-use core::char::ParseCharError;
-use core::error::Error as StdError;
+use crate::parser::Position;
+use core::error::Error as CoreError;
 use core::fmt;
-use core::num::{ParseFloatError, ParseIntError};
-use core::str::{ParseBoolError, Utf8Error};
 use serde::de;
-use std::io;
 
 pub type Result<T> = ::core::result::Result<T, Error>;
 
-#[derive(Debug)]
-pub enum Error {
-    Utf8(Utf8Error),
-    ParseBool(ParseBoolError),
-    ParseInt(ParseIntError),
-    ParseFloat(ParseFloatError),
-    ParseChar(ParseCharError),
-    UnexpectedChar,
-    Serde(String),
+pub struct Error(Box<ErrorImpl>);
+
+pub(crate) struct ErrorImpl {
+    kind: ErrorKind,
+    line: usize,
+    column: usize,
+}
+
+pub(crate) enum ErrorKind {
+    Message(Box<str>),
+    ExpectedEq,
+    InvalidUtf8,
+
+    // Semantic errors.
+    InvalidBool,
+    InvalidInt,
+    InvalidFloat,
+    InvalidChar,
+}
+
+impl Error {
+    pub(crate) fn new(kind: ErrorKind, position: Position) -> Self {
+        Self(Box::new(ErrorImpl {
+            kind,
+            line: position.line,
+            column: position.column,
+        }))
+    }
 }
 
 impl de::Error for Error {
@@ -24,68 +40,50 @@ impl de::Error for Error {
     where
         T: fmt::Display,
     {
-        Self::Serde(message.to_string())
+        Self(Box::new(ErrorImpl {
+            kind: ErrorKind::Message(message.to_string().into_boxed_str()),
+            line: 0,
+            column: 0,
+        }))
     }
 }
 
-impl StdError for Error {
-    fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        let source: &dyn StdError = match self {
-            Self::ParseInt(e) => e,
-            Self::ParseFloat(e) => e,
-            _ => return None,
-        };
+impl CoreError for Error {
+    // Empty
+}
 
-        Some(source)
+impl fmt::Debug for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Error({:?}, line: {}, column: {})",
+            self.0.kind.to_string(),
+            self.0.line,
+            self.0.column
+        )
     }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} at line {} column {}",
+            self.0.kind, self.0.line, self.0.column
+        )
+    }
+}
+
+impl fmt::Display for ErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::UnexpectedChar => write!(f, "Unexpected character"),
-            Error::Utf8(e) => write!(f, "{e}"),
-            Error::ParseBool(e) => write!(f, "{e}"),
-            Error::ParseInt(e) => write!(f, "{e}"),
-            Error::ParseFloat(e) => write!(f, "{e}"),
-            Error::ParseChar(e) => write!(f, "{e}"),
-            Error::Serde(e) => write!(f, "{e}"),
+            ErrorKind::Message(message) => f.write_str(&message),
+            ErrorKind::ExpectedEq => f.write_str("expected equal sign"),
+            ErrorKind::InvalidUtf8 => f.write_str("invalid UTF-8"),
+            ErrorKind::InvalidBool => f.write_str("invalid bool"),
+            ErrorKind::InvalidInt => f.write_str("invalid int"),
+            ErrorKind::InvalidFloat => f.write_str("invalid float"),
+            ErrorKind::InvalidChar => f.write_str("invalid char"),
         }
-    }
-}
-
-impl From<Utf8Error> for Error {
-    fn from(error: Utf8Error) -> Self {
-        Self::Utf8(error)
-    }
-}
-
-impl From<ParseBoolError> for Error {
-    fn from(error: ParseBoolError) -> Self {
-        Self::ParseBool(error)
-    }
-}
-
-impl From<ParseIntError> for Error {
-    fn from(error: ParseIntError) -> Self {
-        Self::ParseInt(error)
-    }
-}
-
-impl From<ParseFloatError> for Error {
-    fn from(error: ParseFloatError) -> Self {
-        Self::ParseFloat(error)
-    }
-}
-
-impl From<ParseCharError> for Error {
-    fn from(error: ParseCharError) -> Self {
-        Self::ParseChar(error)
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(error: io::Error) -> Self {
-        todo!()
     }
 }

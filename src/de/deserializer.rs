@@ -1,6 +1,7 @@
-use crate::error::{Error, Result};
+use crate::error::{Error, ErrorKind, Result};
 use crate::parser::{IndentState, Parser, Reference};
 use serde::de;
+use std::str::FromStr;
 
 #[must_use]
 pub(crate) struct Deserializer<P> {
@@ -23,7 +24,7 @@ where
         }
     }
 
-    pub fn parse<'s>(&'s mut self) -> Result<Reference<'a, 's, str>> {
+    fn parse<'s>(&'s mut self) -> Result<(P::Bookmark, Reference<'a, 's, str>)> {
         if self.should_parse_value {
             self.parse_value()
         } else {
@@ -31,15 +32,53 @@ where
         }
     }
 
-    pub fn parse_key<'s>(&'s mut self) -> Result<Reference<'a, 's, str>> {
+    fn parse_from_str<T, E>(&mut self, error: E) -> Result<T>
+    where
+        T: FromStr,
+        E: FnOnce() -> ErrorKind,
+    {
+        let (bookmark, value) = self.parse()?;
+
+        match T::from_str(&value) {
+            Ok(value) => Ok(value),
+            Err(_) => {
+                let position = self.parser.position_of_bookmark(bookmark);
+                Err(Error::new(error(), position))
+            }
+        }
+    }
+
+    fn parse_bool(&mut self) -> Result<bool> {
+        self.parse_from_str(|| ErrorKind::InvalidBool)
+    }
+
+    fn parse_int<T>(&mut self) -> Result<T>
+    where
+        T: FromStr,
+    {
+        self.parse_from_str(|| ErrorKind::InvalidInt)
+    }
+
+    fn parse_float<T>(&mut self) -> Result<T>
+    where
+        T: FromStr,
+    {
+        self.parse_from_str(|| ErrorKind::InvalidFloat)
+    }
+
+    fn parse_char(&mut self) -> Result<char> {
+        self.parse_from_str(|| ErrorKind::InvalidChar)
+    }
+
+    fn parse_key<'s>(&'s mut self) -> Result<(P::Bookmark, Reference<'a, 's, str>)> {
         self.parser.parse_key(&mut self.scratch)
     }
 
-    pub fn parse_value<'s>(&'s mut self) -> Result<Reference<'a, 's, str>> {
+    fn parse_value<'s>(&'s mut self) -> Result<(P::Bookmark, Reference<'a, 's, str>)> {
         self.parser.parse_value(&mut self.scratch)
     }
 
-    pub fn skip_whitespace(&mut self) -> Result<IndentState> {
+    fn skip_whitespace(&mut self) -> Result<IndentState> {
         self.parser.skip_whitespace(&mut self.scratch)
     }
 }
@@ -130,7 +169,9 @@ where
                 return Ok(None);
             }
 
-            if !self.deserializer.parse_key()?.is_empty() {
+            let (_, key) = self.deserializer.parse_key()?;
+
+            if !key.is_empty() {
                 self.deserializer.parse_value()?;
                 continue;
             }
@@ -209,98 +250,100 @@ where
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_bool(self.parse()?.parse()?)
+        visitor.visit_bool(self.parse_bool()?)
     }
 
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_i8(self.parse()?.parse()?)
+        visitor.visit_i8(self.parse_int()?)
     }
 
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_i16(self.parse()?.parse()?)
+        visitor.visit_i16(self.parse_int()?)
     }
 
     fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_i32(self.parse()?.parse()?)
+        visitor.visit_i32(self.parse_int()?)
     }
 
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_i64(self.parse()?.parse()?)
+        visitor.visit_i64(self.parse_int()?)
     }
 
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_u8(self.parse()?.parse()?)
+        visitor.visit_u8(self.parse_int()?)
     }
 
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_u16(self.parse()?.parse()?)
+        visitor.visit_u16(self.parse_int()?)
     }
 
     fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_u32(self.parse()?.parse()?)
+        visitor.visit_u32(self.parse_int()?)
     }
 
     fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_u64(self.parse()?.parse()?)
+        visitor.visit_u64(self.parse_int()?)
     }
 
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_f32(self.parse()?.parse()?)
+        visitor.visit_f32(self.parse_float()?)
     }
 
     fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_f64(self.parse()?.parse()?)
+        visitor.visit_f64(self.parse_float()?)
     }
 
     fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_char(self.parse()?.parse()?)
+        visitor.visit_char(self.parse_char()?)
     }
 
     fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_str::<Error>(&self.parse()?)
+        let (_, value) = self.parse()?;
+        visitor.visit_str(&value)
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_str::<Error>(&self.parse()?)
+        let (_, value) = self.parse()?;
+        visitor.visit_str(&value)
     }
 
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
@@ -409,10 +452,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_enum(KeyValueAccess {
-            key_indent: self.parser.last_key_indent(),
-            deserializer: self,
-        })
+        visitor.visit_enum(KeyValueAccess::new(self))
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>

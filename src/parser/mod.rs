@@ -11,14 +11,25 @@ use core::ops::Deref;
 use core::str;
 
 pub(crate) trait Parser<'a> {
-    fn parse_key<'s>(&'s mut self, scratch: &'s mut Vec<u8>) -> Result<Reference<'a, 's, str>>;
+    type Bookmark;
 
-    fn parse_value<'s>(&'s mut self, scratch: &'s mut Vec<u8>) -> Result<Reference<'a, 's, str>>;
+    fn parse_key<'s>(
+        &'s mut self,
+        scratch: &'s mut Vec<u8>,
+    ) -> Result<(Self::Bookmark, Reference<'a, 's, str>)>;
+
+    fn parse_value<'s>(
+        &'s mut self,
+        scratch: &'s mut Vec<u8>,
+    ) -> Result<(Self::Bookmark, Reference<'a, 's, str>)>;
 
     fn skip_whitespace(&mut self, scratch: &mut Vec<u8>) -> Result<IndentState>;
 
     #[must_use]
     fn last_key_indent(&self) -> u32;
+
+    #[must_use]
+    fn position_of_bookmark(&self, bookmark: Self::Bookmark) -> Position;
 }
 
 #[derive(Debug)]
@@ -49,34 +60,6 @@ pub(crate) enum IndentState {
     Start(u32),
     Middle,
     Eof,
-}
-
-#[must_use]
-pub(crate) fn trim(data: &[u8]) -> &[u8] {
-    let mut start = 0;
-    let mut end = data.len();
-
-    while start < end {
-        let byte = data[start];
-
-        if !(byte == b' ' || byte == b'\n') {
-            break;
-        }
-
-        start += 1;
-    }
-
-    while end > start {
-        let byte = data[end - 1];
-
-        if !(byte == b' ' || byte == b'\n') {
-            break;
-        }
-
-        end -= 1;
-    }
-
-    &data[start..end]
 }
 
 #[derive(Clone, Copy, Debug)]

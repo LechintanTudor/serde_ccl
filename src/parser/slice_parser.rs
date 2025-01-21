@@ -1,5 +1,5 @@
-use crate::error::{Error, Result};
-use crate::parser::{self, IndentState, Parser, Position, Reference};
+use crate::error::{Error, ErrorKind, Result};
+use crate::parser::{IndentState, Parser, Position, Reference};
 use core::str;
 
 #[must_use]
@@ -20,7 +20,7 @@ impl<'a> SliceParser<'a> {
         }
     }
 
-    pub fn parse_key_raw(&mut self) -> Result<&'a [u8]> {
+    pub fn parse_key_raw(&mut self) -> Result<(usize, &'a [u8])> {
         if let IndentState::Start(indent) = self.skip_whitespace_raw() {
             self.indent_state = IndentState::Middle;
             self.last_key_indent = indent;
@@ -39,16 +39,17 @@ impl<'a> SliceParser<'a> {
         }
 
         if !found_eq {
-            return Err(Error::UnexpectedChar);
+            let position = self.position_of_bookmark(self.index);
+            return Err(Error::new(ErrorKind::ExpectedEq, position));
         }
 
         let key_end = self.index;
         self.index += 1;
 
-        Ok(parser::trim(&self.data[key_start..key_end]))
+        Ok(trim(self.data, key_start, key_end))
     }
 
-    pub fn parse_value_raw(&mut self) -> &'a [u8] {
+    pub fn parse_value_raw(&mut self) -> (usize, &'a [u8]) {
         let value_start = self.index;
 
         while self.index < self.data.len() {
@@ -73,7 +74,7 @@ impl<'a> SliceParser<'a> {
             }
         }
 
-        parser::trim(&self.data[value_start..self.index])
+        trim(self.data, value_start, self.index)
     }
 
     pub fn skip_whitespace_raw(&mut self) -> IndentState {
@@ -98,35 +99,39 @@ impl<'a> SliceParser<'a> {
         self.indent_state = IndentState::Eof;
         self.indent_state
     }
-
-    #[must_use]
-    pub fn position_of_index(&self, index: usize) -> Position {
-        let line_start = self.data[..index]
-            .iter()
-            .rposition(|&b| b == b'\n')
-            .map_or(0, |l| l + 1);
-
-        let line_count = self.data[..line_start]
-            .iter()
-            .filter(|&&c| c == b'\n')
-            .count();
-
-        Position {
-            line: 1 + line_count,
-            column: index - line_start,
-        }
-    }
 }
 
 impl<'a> Parser<'a> for SliceParser<'a> {
-    fn parse_key<'s>(&'s mut self, _scratch: &'s mut Vec<u8>) -> Result<Reference<'a, 's, str>> {
-        let key = self.parse_key_raw()?;
-        Ok(Reference::Borrowed(str::from_utf8(key)?))
+    type Bookmark = usize;
+
+    fn parse_key<'s>(
+        &'s mut self,
+        _scratch: &'s mut Vec<u8>,
+    ) -> Result<(Self::Bookmark, Reference<'a, 's, str>)> {
+        let (bookmark, key) = self.parse_key_raw()?;
+
+        match str::from_utf8(key) {
+            Ok(key) => Ok((bookmark, Reference::Borrowed(key))),
+            Err(e) => {
+                let position = self.position_of_bookmark(bookmark + e.valid_up_to());
+                Err(Error::new(ErrorKind::InvalidUtf8, position))
+            }
+        }
     }
 
-    fn parse_value<'s>(&'s mut self, _scratch: &'s mut Vec<u8>) -> Result<Reference<'a, 's, str>> {
-        let value = self.parse_value_raw();
-        Ok(Reference::Borrowed(str::from_utf8(value)?))
+    fn parse_value<'s>(
+        &'s mut self,
+        _scratch: &'s mut Vec<u8>,
+    ) -> Result<(Self::Bookmark, Reference<'a, 's, str>)> {
+        let (bookmark, value) = self.parse_value_raw();
+
+        match str::from_utf8(value) {
+            Ok(key) => Ok((bookmark, Reference::Borrowed(key))),
+            Err(e) => {
+                let position = self.position_of_bookmark(bookmark + e.valid_up_to());
+                Err(Error::new(ErrorKind::InvalidUtf8, position))
+            }
+        }
     }
 
     fn skip_whitespace(&mut self, _scratch: &mut Vec<u8>) -> Result<IndentState> {
@@ -136,4 +141,41 @@ impl<'a> Parser<'a> for SliceParser<'a> {
     fn last_key_indent(&self) -> u32 {
         self.last_key_indent
     }
+
+    fn position_of_bookmark(&self, bookmark: Self::Bookmark) -> Position {
+        // From serde_json: https://github.com/serde-rs/json
+
+        let start_of_line =
+            memchr::memrchr(b'\n', &self.data[..bookmark]).map_or(0, |position| position + 1);
+
+        Position {
+            line: 1 + memchr::memchr_iter(b'\n', &self.data[..start_of_line]).count(),
+            column: 1 + bookmark - start_of_line,
+        }
+    }
+}
+
+#[must_use]
+fn trim(data: &[u8], mut start: usize, mut end: usize) -> (usize, &[u8]) {
+    while start < end {
+        let byte = data[start];
+
+        if !(byte == b' ' || byte == b'\n') {
+            break;
+        }
+
+        start += 1;
+    }
+
+    while end > start {
+        let byte = data[end - 1];
+
+        if !(byte == b' ' || byte == b'\n') {
+            break;
+        }
+
+        end -= 1;
+    }
+
+    (start, &data[start..end])
 }

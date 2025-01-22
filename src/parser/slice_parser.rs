@@ -1,5 +1,5 @@
-use crate::error::{Error, ErrorKind, Result};
-use crate::parser::{IndentState, Parser, Position, Reference};
+use crate::error::{Error, ErrorCode, Result};
+use crate::parser::{IndentState, Parser, Position};
 use core::str;
 
 #[must_use]
@@ -39,8 +39,8 @@ impl<'a> SliceParser<'a> {
         }
 
         if !found_eq {
-            let position = self.position_of_bookmark(self.index);
-            return Err(Error::new(ErrorKind::ExpectedEq, position));
+            let position = self.position_of_index(self.index);
+            return Err(Error::new(ErrorCode::ExpectedEq, position));
         }
 
         let key_end = self.index;
@@ -102,39 +102,31 @@ impl<'a> SliceParser<'a> {
 }
 
 impl<'a> Parser<'a> for SliceParser<'a> {
-    type Bookmark = usize;
-
-    fn parse_key<'s>(
-        &'s mut self,
-        _scratch: &'s mut Vec<u8>,
-    ) -> Result<(Self::Bookmark, Reference<'a, 's, str>)> {
-        let (bookmark, key) = self.parse_key_raw()?;
+    fn parse_key(&mut self) -> Result<(usize, &'a str)> {
+        let (index, key) = self.parse_key_raw()?;
 
         match str::from_utf8(key) {
-            Ok(key) => Ok((bookmark, Reference::Borrowed(key))),
+            Ok(key) => Ok((index, key)),
             Err(e) => {
-                let position = self.position_of_bookmark(bookmark + e.valid_up_to());
-                Err(Error::new(ErrorKind::InvalidUtf8, position))
+                let position = self.position_of_index(index + e.valid_up_to());
+                Err(Error::new(ErrorCode::InvalidUtf8, position))
             }
         }
     }
 
-    fn parse_value<'s>(
-        &'s mut self,
-        _scratch: &'s mut Vec<u8>,
-    ) -> Result<(Self::Bookmark, Reference<'a, 's, str>)> {
-        let (bookmark, value) = self.parse_value_raw();
+    fn parse_value(&mut self) -> Result<(usize, &'a str)> {
+        let (index, value) = self.parse_value_raw();
 
         match str::from_utf8(value) {
-            Ok(key) => Ok((bookmark, Reference::Borrowed(key))),
+            Ok(key) => Ok((index, key)),
             Err(e) => {
-                let position = self.position_of_bookmark(bookmark + e.valid_up_to());
-                Err(Error::new(ErrorKind::InvalidUtf8, position))
+                let position = self.position_of_index(index + e.valid_up_to());
+                Err(Error::new(ErrorCode::InvalidUtf8, position))
             }
         }
     }
 
-    fn skip_whitespace(&mut self, _scratch: &mut Vec<u8>) -> Result<IndentState> {
+    fn skip_whitespace(&mut self) -> Result<IndentState> {
         Ok(self.skip_whitespace_raw())
     }
 
@@ -142,15 +134,13 @@ impl<'a> Parser<'a> for SliceParser<'a> {
         self.last_key_indent
     }
 
-    fn position_of_bookmark(&self, bookmark: Self::Bookmark) -> Position {
-        // From serde_json: https://github.com/serde-rs/json
-
+    fn position_of_index(&self, index: usize) -> Position {
         let start_of_line =
-            memchr::memrchr(b'\n', &self.data[..bookmark]).map_or(0, |position| position + 1);
+            memchr::memrchr(b'\n', &self.data[..index]).map_or(0, |position| position + 1);
 
         Position {
             line: 1 + memchr::memchr_iter(b'\n', &self.data[..start_of_line]).count(),
-            column: 1 + bookmark - start_of_line,
+            column: 1 + index - start_of_line,
         }
     }
 }

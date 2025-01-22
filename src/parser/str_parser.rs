@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::parser::{IndentState, Parser, Position, Reference, SliceParser};
+use crate::parser::{IndentState, Parser, Position, SliceParser};
 use core::str;
 
 #[must_use]
@@ -16,27 +16,19 @@ impl<'a> StrParser<'a> {
 }
 
 impl<'a> Parser<'a> for StrParser<'a> {
-    type Bookmark = usize;
-
-    fn parse_key<'s>(
-        &'s mut self,
-        _scratch: &'s mut Vec<u8>,
-    ) -> Result<(Self::Bookmark, Reference<'a, 's, str>)> {
-        let (bookmark, raw_key) = self.delegate.parse_key_raw()?;
+    fn parse_key(&mut self) -> Result<(usize, &'a str)> {
+        let (index, raw_key) = self.delegate.parse_key_raw()?;
         let key = unsafe { str::from_utf8_unchecked(raw_key) };
-        Ok((bookmark, Reference::Borrowed(key)))
+        Ok((index, key))
     }
 
-    fn parse_value<'s>(
-        &'s mut self,
-        _scratch: &'s mut Vec<u8>,
-    ) -> Result<(Self::Bookmark, Reference<'a, 's, str>)> {
-        let (bookmark, raw_value) = self.delegate.parse_value_raw();
+    fn parse_value<'s>(&mut self) -> Result<(usize, &'a str)> {
+        let (index, raw_value) = self.delegate.parse_value_raw();
         let value = unsafe { str::from_utf8_unchecked(raw_value) };
-        Ok((bookmark, Reference::Borrowed(value)))
+        Ok((index, value))
     }
 
-    fn skip_whitespace(&mut self, _scratch: &mut Vec<u8>) -> Result<IndentState> {
+    fn skip_whitespace(&mut self) -> Result<IndentState> {
         Ok(self.delegate.skip_whitespace_raw())
     }
 
@@ -44,7 +36,7 @@ impl<'a> Parser<'a> for StrParser<'a> {
         self.delegate.last_key_indent()
     }
 
-    fn position_of_bookmark(&self, bookmark: Self::Bookmark) -> Position {
-        self.delegate.position_of_bookmark(bookmark)
+    fn position_of_index(&self, index: usize) -> Position {
+        self.delegate.position_of_index(index)
     }
 }

@@ -3,35 +3,68 @@ use core::error::Error as CoreError;
 use core::fmt;
 use serde::de;
 
+/// Result type returned by functions that can fail.
 pub type Result<T> = ::core::result::Result<T, Error>;
 
+/// Error type returned by functions that can fail.
 pub struct Error(Box<ErrorImpl>);
 
 pub(crate) struct ErrorImpl {
-    kind: ErrorKind,
+    code: ErrorCode,
     line: usize,
     column: usize,
 }
 
-pub(crate) enum ErrorKind {
-    Message(Box<str>),
+pub(crate) enum ErrorCode {
+    // Parser errors.
     ExpectedEq,
     InvalidUtf8,
 
     // Semantic errors.
+    Message(Box<str>),
     InvalidBool,
     InvalidInt,
     InvalidFloat,
     InvalidChar,
 }
 
+/// The kind of error.
+#[derive(Clone, Copy, Debug)]
+pub enum ErrorKind {
+    /// The input is not a valid CCL document.
+    Syntax,
+
+    /// The deserialized data is semantically incorrect.
+    Semantic,
+}
+
 impl Error {
-    pub(crate) fn new(kind: ErrorKind, position: Position) -> Self {
+    pub(crate) fn new(code: ErrorCode, position: Position) -> Self {
         Self(Box::new(ErrorImpl {
-            kind,
+            code,
             line: position.line,
             column: position.column,
         }))
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn kind(&self) -> ErrorKind {
+        self.0.code.kind()
+    }
+
+    /// Returns the line at which the error occurred.
+    #[inline]
+    #[must_use]
+    pub fn line(&self) -> usize {
+        self.0.line
+    }
+
+    /// Returns the column at which the error occurred.
+    #[inline]
+    #[must_use]
+    pub fn column(&self) -> usize {
+        self.0.column
     }
 }
 
@@ -41,7 +74,7 @@ impl de::Error for Error {
         T: fmt::Display,
     {
         Self(Box::new(ErrorImpl {
-            kind: ErrorKind::Message(message.to_string().into_boxed_str()),
+            code: ErrorCode::Message(message.to_string().into_boxed_str()),
             line: 0,
             column: 0,
         }))
@@ -57,7 +90,7 @@ impl fmt::Debug for Error {
         write!(
             f,
             "Error({:?}, line: {}, column: {})",
-            self.0.kind.to_string(),
+            self.0.code.to_string(),
             self.0.line,
             self.0.column
         )
@@ -69,21 +102,37 @@ impl fmt::Display for Error {
         write!(
             f,
             "{} at line {} column {}",
-            self.0.kind, self.0.line, self.0.column
+            self.0.code, self.0.line, self.0.column
         )
     }
 }
 
-impl fmt::Display for ErrorKind {
+impl ErrorCode {
+    #[must_use]
+    fn kind(&self) -> ErrorKind {
+        #[allow(clippy::match_same_arms)]
+        match self {
+            Self::Message(_) => ErrorKind::Syntax,
+            Self::ExpectedEq => ErrorKind::Syntax,
+            Self::InvalidUtf8 => ErrorKind::Semantic,
+            Self::InvalidBool => ErrorKind::Semantic,
+            Self::InvalidInt => ErrorKind::Semantic,
+            Self::InvalidFloat => ErrorKind::Semantic,
+            Self::InvalidChar => ErrorKind::Semantic,
+        }
+    }
+}
+
+impl fmt::Display for ErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ErrorKind::Message(message) => f.write_str(&message),
-            ErrorKind::ExpectedEq => f.write_str("expected equal sign"),
-            ErrorKind::InvalidUtf8 => f.write_str("invalid UTF-8"),
-            ErrorKind::InvalidBool => f.write_str("invalid bool"),
-            ErrorKind::InvalidInt => f.write_str("invalid int"),
-            ErrorKind::InvalidFloat => f.write_str("invalid float"),
-            ErrorKind::InvalidChar => f.write_str("invalid char"),
+            ErrorCode::Message(message) => f.write_str(message),
+            ErrorCode::ExpectedEq => f.write_str("expected equal sign"),
+            ErrorCode::InvalidUtf8 => f.write_str("invalid UTF-8"),
+            ErrorCode::InvalidBool => f.write_str("invalid bool"),
+            ErrorCode::InvalidInt => f.write_str("invalid int"),
+            ErrorCode::InvalidFloat => f.write_str("invalid float"),
+            ErrorCode::InvalidChar => f.write_str("invalid char"),
         }
     }
 }

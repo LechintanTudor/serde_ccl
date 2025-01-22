@@ -1,13 +1,12 @@
-use crate::error::{Error, ErrorKind, Result};
-use crate::parser::{IndentState, Parser, Reference};
+use crate::error::{Error, ErrorCode, Result};
+use crate::parser::{IndentState, Parser};
+use core::str::FromStr;
 use serde::de;
-use std::str::FromStr;
 
 #[must_use]
 pub(crate) struct Deserializer<P> {
     parser: P,
     is_first: bool,
-    scratch: Vec<u8>,
     should_parse_value: bool,
 }
 
@@ -19,73 +18,57 @@ where
         Self {
             parser,
             is_first: true,
-            scratch: Vec::new(),
             should_parse_value: false,
         }
     }
 
-    fn parse<'s>(&'s mut self) -> Result<(P::Bookmark, Reference<'a, 's, str>)> {
+    fn parse(&mut self) -> Result<(usize, &'a str)> {
         if self.should_parse_value {
-            self.parse_value()
+            self.parser.parse_value()
         } else {
-            self.parse_key()
+            self.parser.parse_key()
         }
     }
 
     fn parse_from_str<T, E>(&mut self, error: E) -> Result<T>
     where
         T: FromStr,
-        E: FnOnce() -> ErrorKind,
+        E: FnOnce() -> ErrorCode,
     {
-        let (bookmark, value) = self.parse()?;
+        let (index, value) = self.parse()?;
 
-        match T::from_str(&value) {
-            Ok(value) => Ok(value),
-            Err(_) => {
-                let position = self.parser.position_of_bookmark(bookmark);
-                Err(Error::new(error(), position))
-            }
-        }
+        T::from_str(value).map_err(|_| {
+            let position = self.parser.position_of_index(index);
+            Error::new(error(), position)
+        })
     }
 
     fn parse_bool(&mut self) -> Result<bool> {
-        self.parse_from_str(|| ErrorKind::InvalidBool)
+        self.parse_from_str(|| ErrorCode::InvalidBool)
     }
 
     fn parse_int<T>(&mut self) -> Result<T>
     where
         T: FromStr,
     {
-        self.parse_from_str(|| ErrorKind::InvalidInt)
+        self.parse_from_str(|| ErrorCode::InvalidInt)
     }
 
     fn parse_float<T>(&mut self) -> Result<T>
     where
         T: FromStr,
     {
-        self.parse_from_str(|| ErrorKind::InvalidFloat)
+        self.parse_from_str(|| ErrorCode::InvalidFloat)
     }
 
     fn parse_char(&mut self) -> Result<char> {
-        self.parse_from_str(|| ErrorKind::InvalidChar)
-    }
-
-    fn parse_key<'s>(&'s mut self) -> Result<(P::Bookmark, Reference<'a, 's, str>)> {
-        self.parser.parse_key(&mut self.scratch)
-    }
-
-    fn parse_value<'s>(&'s mut self) -> Result<(P::Bookmark, Reference<'a, 's, str>)> {
-        self.parser.parse_value(&mut self.scratch)
-    }
-
-    fn skip_whitespace(&mut self) -> Result<IndentState> {
-        self.parser.skip_whitespace(&mut self.scratch)
+        self.parse_from_str(|| ErrorCode::InvalidChar)
     }
 }
 
 #[must_use]
-pub struct KeyValueAccess<'a, P> {
-    deserializer: &'a mut Deserializer<P>,
+struct KeyValueAccess<'a, P> {
+    de: &'a mut Deserializer<P>,
     key_indent: u32,
 }
 
@@ -93,11 +76,11 @@ impl<'a, 'b, P> KeyValueAccess<'a, P>
 where
     P: Parser<'b>,
 {
-    pub fn new(deserializer: &'a mut Deserializer<P>) -> Self {
-        let key_indent = deserializer.parser.last_key_indent();
+    fn new(de: &'a mut Deserializer<P>) -> Self {
+        let key_indent = de.parser.last_key_indent();
 
-        let key_indent = if deserializer.is_first {
-            deserializer.is_first = false;
+        let key_indent = if de.is_first {
+            de.is_first = false;
 
             if key_indent == 0 {
                 0
@@ -108,10 +91,7 @@ where
             key_indent + 1
         };
 
-        Self {
-            deserializer,
-            key_indent,
-        }
+        Self { de, key_indent }
     }
 }
 
@@ -125,7 +105,7 @@ where
     where
         K: de::DeserializeSeed<'de>,
     {
-        let has_next = match self.deserializer.skip_whitespace()? {
+        let has_next = match self.de.parser.skip_whitespace()? {
             IndentState::Start(indent) => indent >= self.key_indent,
             IndentState::Middle => true,
             IndentState::Eof => false,
@@ -135,16 +115,16 @@ where
             return Ok(None);
         }
 
-        self.deserializer.should_parse_value = false;
-        seed.deserialize(&mut *self.deserializer).map(Some)
+        self.de.should_parse_value = false;
+        seed.deserialize(&mut *self.de).map(Some)
     }
 
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
     where
         V: de::DeserializeSeed<'de>,
     {
-        self.deserializer.should_parse_value = true;
-        seed.deserialize(&mut *self.deserializer)
+        self.de.should_parse_value = true;
+        seed.deserialize(&mut *self.de)
     }
 }
 
@@ -159,7 +139,7 @@ where
         T: de::DeserializeSeed<'de>,
     {
         loop {
-            let has_next = match self.deserializer.skip_whitespace()? {
+            let has_next = match self.de.parser.skip_whitespace()? {
                 IndentState::Start(indent) => indent >= self.key_indent,
                 IndentState::Middle => true,
                 IndentState::Eof => false,
@@ -169,15 +149,15 @@ where
                 return Ok(None);
             }
 
-            let (_, key) = self.deserializer.parse_key()?;
+            let (_, key) = self.de.parser.parse_key()?;
 
             if !key.is_empty() {
-                self.deserializer.parse_value()?;
+                self.de.parser.parse_value()?;
                 continue;
             }
 
-            self.deserializer.should_parse_value = true;
-            break seed.deserialize(&mut *self.deserializer).map(Some);
+            self.de.should_parse_value = true;
+            break seed.deserialize(&mut *self.de).map(Some);
         }
     }
 }
@@ -194,9 +174,9 @@ where
     where
         V: de::DeserializeSeed<'de>,
     {
-        self.deserializer.should_parse_value = false;
-        let key = seed.deserialize(&mut *self.deserializer)?;
-        Ok((key, KeyValueAccess::new(&mut *self.deserializer)))
+        self.de.should_parse_value = false;
+        let key = seed.deserialize(&mut *self.de)?;
+        Ok((key, KeyValueAccess::new(&mut *self.de)))
     }
 }
 
@@ -207,7 +187,7 @@ where
     type Error = Error;
 
     fn unit_variant(self) -> Result<()> {
-        self.deserializer.parse_value()?;
+        self.de.parser.parse_value()?;
         Ok(())
     }
 
@@ -215,21 +195,21 @@ where
     where
         T: de::DeserializeSeed<'de>,
     {
-        seed.deserialize(self.deserializer)
+        seed.deserialize(self.de)
     }
 
     fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        de::Deserializer::deserialize_seq(self.deserializer, visitor)
+        de::Deserializer::deserialize_seq(self.de, visitor)
     }
 
     fn struct_variant<V>(self, _fields: &'static [&'static str], visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        de::Deserializer::deserialize_map(self.deserializer, visitor)
+        de::Deserializer::deserialize_map(self.de, visitor)
     }
 }
 
@@ -335,7 +315,7 @@ where
         V: de::Visitor<'de>,
     {
         let (_, value) = self.parse()?;
-        visitor.visit_str(&value)
+        visitor.visit_str(value)
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
@@ -343,7 +323,7 @@ where
         V: de::Visitor<'de>,
     {
         let (_, value) = self.parse()?;
-        visitor.visit_str(&value)
+        visitor.visit_str(value)
     }
 
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
@@ -364,7 +344,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let is_some = match self.skip_whitespace()? {
+        let is_some = match self.parser.skip_whitespace()? {
             IndentState::Start(indent) => indent > self.parser.last_key_indent(),
             IndentState::Middle => true,
             IndentState::Eof => false,

@@ -1,58 +1,24 @@
-mod read_parser;
 mod slice_parser;
 mod str_parser;
 
-pub(crate) use self::read_parser::*;
 pub(crate) use self::slice_parser::*;
 pub(crate) use self::str_parser::*;
 
 use crate::error::Result;
-use core::ops::Deref;
 use core::str;
 
 pub(crate) trait Parser<'a> {
-    type Bookmark;
+    fn parse_key(&mut self) -> Result<(usize, &'a str)>;
 
-    fn parse_key<'s>(
-        &'s mut self,
-        scratch: &'s mut Vec<u8>,
-    ) -> Result<(Self::Bookmark, Reference<'a, 's, str>)>;
+    fn parse_value(&mut self) -> Result<(usize, &'a str)>;
 
-    fn parse_value<'s>(
-        &'s mut self,
-        scratch: &'s mut Vec<u8>,
-    ) -> Result<(Self::Bookmark, Reference<'a, 's, str>)>;
-
-    fn skip_whitespace(&mut self, scratch: &mut Vec<u8>) -> Result<IndentState>;
+    fn skip_whitespace(&mut self) -> Result<IndentState>;
 
     #[must_use]
     fn last_key_indent(&self) -> u32;
 
     #[must_use]
-    fn position_of_bookmark(&self, bookmark: Self::Bookmark) -> Position;
-}
-
-#[derive(Debug)]
-pub(crate) enum Reference<'b, 'c, T>
-where
-    T: ?Sized,
-{
-    Borrowed(&'b T),
-    Copied(&'c T),
-}
-
-impl<T> Deref for Reference<'_, '_, T>
-where
-    T: ?Sized,
-{
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            Self::Borrowed(b) => b,
-            Self::Copied(c) => c,
-        }
-    }
+    fn position_of_index(&self, index: usize) -> Position;
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -62,7 +28,7 @@ pub(crate) enum IndentState {
     Eof,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Default, Debug)]
 pub(crate) struct Position {
     pub line: usize,
     pub column: usize,

@@ -22,7 +22,7 @@ where
         }
     }
 
-    fn parse(&mut self) -> Result<(usize, &'a str)> {
+    fn parse(&mut self) -> Result<&'a str> {
         if self.should_parse_value {
             self.parser.parse_value()
         } else {
@@ -35,11 +35,12 @@ where
         T: FromStr,
         E: FnOnce() -> ErrorCode,
     {
-        let (index, value) = self.parse()?;
+        let value = self.parse()?;
 
         T::from_str(value).map_err(|_| {
-            let position = self.parser.position_of_index(index);
-            Error::new(error(), position)
+            Error::new(error(), unsafe {
+                self.parser.position_of_ptr(value.as_ptr())
+            })
         })
     }
 
@@ -149,7 +150,7 @@ where
                 return Ok(None);
             }
 
-            let (_, key) = self.de.parser.parse_key()?;
+            let key = self.de.parser.parse_key()?;
 
             if !key.is_empty() {
                 self.de.parser.parse_value()?;
@@ -314,16 +315,14 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let (_, value) = self.parse()?;
-        visitor.visit_str(value)
+        visitor.visit_str(self.parse()?)
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        let (_, value) = self.parse()?;
-        visitor.visit_str(value)
+        visitor.visit_str(self.parse()?)
     }
 
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>

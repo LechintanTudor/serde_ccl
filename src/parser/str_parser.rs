@@ -16,20 +16,23 @@ impl<'a> StrParser<'a> {
 }
 
 impl<'a> Parser<'a> for StrParser<'a> {
-    fn parse_key(&mut self) -> Result<(usize, &'a str)> {
-        let (index, raw_key) = self.delegate.parse_key_raw()?;
-        let key = unsafe { str::from_utf8_unchecked(raw_key) };
-        Ok((index, key))
+    fn parse_key(&mut self) -> Result<&'a str> {
+        self.delegate
+            .parse_key_raw()
+            .map(|key| unsafe { str::from_utf8_unchecked(key) })
     }
 
-    fn parse_value<'s>(&mut self) -> Result<(usize, &'a str)> {
-        let (index, raw_value) = self.delegate.parse_value_raw();
-        let value = unsafe { str::from_utf8_unchecked(raw_value) };
-        Ok((index, value))
+    fn parse_value<'s>(&mut self) -> Result<&'a str> {
+        let value = self.delegate.parse_value_raw();
+        unsafe { Ok(str::from_utf8_unchecked(value)) }
     }
 
     fn skip_whitespace(&mut self) -> Result<IndentState> {
         Ok(self.delegate.skip_whitespace_raw())
+    }
+
+    fn data(&self) -> &'a [u8] {
+        self.delegate.data()
     }
 
     fn last_key_indent(&self) -> u32 {

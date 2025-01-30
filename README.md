@@ -5,18 +5,24 @@
 
 ## Example
 
-```rust
-use serde::Deserialize;
+CCL document named `example.ccl`.
 
-const DOCUMENT = r"
-imports =
-  = ~/.config/alacritty/cattpuccin-mocha.ccl
-  = ~/.config/alacritty/iosevka-term-nf.ccl
+```text
+imports
+  = ~/.config/terminal/theme.ccl
+  = ~/.config/terminal/font.ccl
 
 dynamic_title = false
 font_size = 12
 shell = tmux new-session -A -s main
-";
+```
+
+Code to deserialize the CCL document.
+
+```rust
+use serde::Deserialize;
+
+const DOCUMENT = include_str!("example.ccl");
 
 #[derive(Debug, Deserialize)]
 struct Config {

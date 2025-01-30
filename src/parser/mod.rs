@@ -32,6 +32,8 @@ pub(crate) trait Parser<'a> {
 
     #[must_use]
     fn position_of_index(&self, index: usize) -> Position {
+        // Adapted from serde_json: https://github.com/serde-rs/json.
+
         let data = self.data();
         let start_of_line =
             memchr::memrchr(b'\n', &data[..index]).map_or(0, |position| position + 1);

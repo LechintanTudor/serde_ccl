@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::parser::{IndentState, Parser, Position, SliceParser};
+use crate::parser::{IndentState, Parser, SliceParser};
 use core::str;
 
 #[must_use]
@@ -35,11 +35,11 @@ impl<'a> Parser<'a> for StrParser<'a> {
         self.delegate.data()
     }
 
-    fn last_key_indent(&self) -> u32 {
-        self.delegate.last_key_indent()
+    fn last_key_index(&self) -> usize {
+        self.delegate.last_key_index()
     }
 
-    fn position_of_index(&self, index: usize) -> Position {
-        self.delegate.position_of_index(index)
+    fn last_key_indent(&self) -> u32 {
+        self.delegate.last_key_indent()
     }
 }

@@ -5,6 +5,7 @@ pub(crate) use self::slice_parser::*;
 pub(crate) use self::str_parser::*;
 
 use crate::error::Result;
+use crate::position::Position;
 use core::str;
 
 pub(crate) trait Parser<'a> {
@@ -18,14 +19,15 @@ pub(crate) trait Parser<'a> {
     fn data(&self) -> &'a [u8];
 
     #[must_use]
+    fn last_key_index(&self) -> usize;
+
+    #[must_use]
     fn last_key_indent(&self) -> u32;
 
     #[must_use]
-    unsafe fn position_of_ptr(&self, ptr: *const u8) -> Position {
-        #[allow(clippy::cast_sign_loss)]
-        let index = ptr.offset_from(self.data().as_ptr()) as usize;
-
-        self.position_of_index(index)
+    #[allow(clippy::cast_sign_loss)]
+    unsafe fn index_of_ptr(&self, ptr: *const u8) -> usize {
+        ptr.offset_from(self.data().as_ptr()) as usize
     }
 
     #[must_use]
@@ -39,6 +41,11 @@ pub(crate) trait Parser<'a> {
             column: 1 + index - start_of_line,
         }
     }
+
+    #[must_use]
+    unsafe fn position_of_ptr(&self, ptr: *const u8) -> Position {
+        self.position_of_index(self.index_of_ptr(ptr))
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -46,10 +53,4 @@ pub(crate) enum IndentState {
     Start(u32),
     Middle,
     Eof,
-}
-
-#[derive(Clone, Copy, Default, Debug)]
-pub(crate) struct Position {
-    pub line: usize,
-    pub column: usize,
 }

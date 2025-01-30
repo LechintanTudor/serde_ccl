@@ -6,6 +6,7 @@ use core::str;
 pub(crate) struct SliceParser<'a> {
     data: &'a [u8],
     index: usize,
+    last_key_index: usize,
     last_key_indent: u32,
     indent_state: IndentState,
 }
@@ -16,6 +17,7 @@ impl<'a> SliceParser<'a> {
             data,
             index: 0,
             last_key_indent: 0,
+            last_key_index: 0,
             indent_state: IndentState::Start(0),
         }
     }
@@ -46,7 +48,9 @@ impl<'a> SliceParser<'a> {
         let key_end = self.index;
         self.index += 1;
 
-        Ok(trim(&self.data[key_start..key_end]))
+        let key = trim(&self.data[key_start..key_end]);
+        self.last_key_index = unsafe { self.index_of_ptr(key.as_ptr()) };
+        Ok(key)
     }
 
     pub fn parse_value_raw(&mut self) -> &'a [u8] {
@@ -105,10 +109,11 @@ impl<'a> Parser<'a> for SliceParser<'a> {
     fn parse_key(&mut self) -> Result<&'a str> {
         let key = self.parse_key_raw()?;
 
-        str::from_utf8(key).map_err(|e| {
-            Error::new(ErrorCode::InvalidUtf8, unsafe {
-                self.position_of_ptr(key.as_ptr().add(e.valid_up_to()))
-            })
+        str::from_utf8(key).map_err(|e| unsafe {
+            Error::new(
+                ErrorCode::InvalidUtf8,
+                self.position_of_ptr(key.as_ptr().add(e.valid_up_to())),
+            )
         })
     }
 
@@ -128,6 +133,10 @@ impl<'a> Parser<'a> for SliceParser<'a> {
 
     fn data(&self) -> &'a [u8] {
         self.data
+    }
+
+    fn last_key_index(&self) -> usize {
+        self.last_key_index
     }
 
     fn last_key_indent(&self) -> u32 {

@@ -381,7 +381,11 @@ where
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_seq(KeyValueAccess::new(self))
+        let last_key_index = self.parser.last_key_index();
+
+        visitor
+            .visit_seq(KeyValueAccess::new(self))
+            .map_err(|e| e.with_position(self.parser.position_of_index(last_key_index)))
     }
 
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
@@ -407,7 +411,11 @@ where
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_map(KeyValueAccess::new(self))
+        let last_key_index = self.parser.last_key_index();
+
+        visitor
+            .visit_map(KeyValueAccess::new(self))
+            .map_err(|e| e.with_position(self.parser.position_of_index(last_key_index)))
     }
 
     fn deserialize_struct<V>(
@@ -419,7 +427,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_map(KeyValueAccess::new(self))
+        self.deserialize_map(visitor)
     }
 
     fn deserialize_enum<V>(
@@ -431,7 +439,11 @@ where
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_enum(KeyValueAccess::new(self))
+        let last_key_index = self.parser.last_key_index();
+
+        visitor
+            .visit_enum(KeyValueAccess::new(self))
+            .map_err(|e| e.with_position(self.parser.position_of_index(last_key_index)))
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>

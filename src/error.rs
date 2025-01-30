@@ -1,4 +1,6 @@
-use crate::parser::Position;
+use crate::position::Position;
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
 use core::error::Error as CoreError;
 use core::fmt;
 use serde::de;
@@ -11,8 +13,7 @@ pub struct Error(Box<ErrorImpl>);
 
 pub(crate) struct ErrorImpl {
     code: ErrorCode,
-    line: usize,
-    column: usize,
+    position: Position,
 }
 
 pub(crate) enum ErrorCode {
@@ -21,7 +22,7 @@ pub(crate) enum ErrorCode {
     InvalidUtf8,
 
     // Semantic errors.
-    Message(Box<str>),
+    Message(String),
     InvalidBool,
     InvalidInt,
     InvalidFloat,
@@ -29,7 +30,7 @@ pub(crate) enum ErrorCode {
 }
 
 /// The kind of error.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ErrorKind {
     /// The input is not a valid CCL document.
     Syntax,
@@ -40,11 +41,15 @@ pub enum ErrorKind {
 
 impl Error {
     pub(crate) fn new(code: ErrorCode, position: Position) -> Self {
-        Self(Box::new(ErrorImpl {
-            code,
-            line: position.line,
-            column: position.column,
-        }))
+        Self(Box::new(ErrorImpl { code, position }))
+    }
+
+    pub(crate) fn with_position(mut self, position: Position) -> Self {
+        if self.0.position.is_default() {
+            self.0.position = position;
+        }
+
+        self
     }
 
     #[inline]
@@ -57,14 +62,14 @@ impl Error {
     #[inline]
     #[must_use]
     pub fn line(&self) -> usize {
-        self.0.line
+        self.0.position.line
     }
 
     /// Returns the column at which the error occurred.
     #[inline]
     #[must_use]
     pub fn column(&self) -> usize {
-        self.0.column
+        self.0.position.column
     }
 }
 
@@ -74,9 +79,8 @@ impl de::Error for Error {
         T: fmt::Display,
     {
         Self(Box::new(ErrorImpl {
-            code: ErrorCode::Message(message.to_string().into_boxed_str()),
-            line: 0,
-            column: 0,
+            code: ErrorCode::Message(message.to_string()),
+            position: Position::default(),
         }))
     }
 }
@@ -91,8 +95,8 @@ impl fmt::Debug for Error {
             f,
             "Error({:?}, line: {}, column: {})",
             self.0.code.to_string(),
-            self.0.line,
-            self.0.column
+            self.0.position.line,
+            self.0.position.column,
         )
     }
 }
@@ -102,7 +106,7 @@ impl fmt::Display for Error {
         write!(
             f,
             "{} at line {} column {}",
-            self.0.code, self.0.line, self.0.column
+            self.0.code, self.0.position.line, self.0.position.column,
         )
     }
 }

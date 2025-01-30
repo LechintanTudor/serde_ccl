@@ -8,7 +8,7 @@
 CCL document named `example.ccl`.
 
 ```text
-imports
+imports =
   = ~/.config/terminal/theme.ccl
   = ~/.config/terminal/font.ccl
 
@@ -33,10 +33,10 @@ struct Config {
 }
 
 fn main() {
-  let config = serde_ccl::from_str(DOCUMENT)
+  let config = serde_ccl::from_str::<Config>(DOCUMENT)
     .expect("Failed to parse document");
 
-  println!("{document:?}");
+  println!("{config:?}");
 }
 ```
 

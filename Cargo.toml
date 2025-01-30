@@ -2,6 +2,13 @@
 name = "serde_ccl"
 version = "0.1.0"
 edition = "2021"
+description = "Serde-based deserializer for CCL Documents"
+authors = ["Tudor-Cristian Lechințan <lechintantudor02@gmail.com>"]
+repository = "https://github.com/LechintanTudor/serde_ccl"
+keywords = ["ccl", "serde"]
+categories = ["config", "no-std", "parser-implementations"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
 
 [dependencies]
 memchr = { version = "2.3", default-features = false }

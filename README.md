@@ -1,5 +1,8 @@
 # Serde CCL
 
+[![Crates.io](https://img.shields.io/crates/v/serde_ccl)](https://crates.io/crates/serde_ccl)
+[![Documentation](https://docs.rs/serde_ccl/badge.svg)](https://docs.rs/serde_ccl)
+
 [Serde](https://crates.io/crates/serde)-based crate for deserializing
 [CCL Documents](https://chshersh.com/blog/2025-01-06-the-most-elegant-configuration-language.html).
 

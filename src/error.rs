@@ -40,15 +40,15 @@ pub enum ErrorKind {
 }
 
 impl Error {
+    #[must_use]
     pub(crate) fn new(code: ErrorCode, position: Position) -> Self {
         Self(Box::new(ErrorImpl { code, position }))
     }
 
+    #[inline]
+    #[must_use]
     pub(crate) fn with_position(mut self, position: Position) -> Self {
-        if self.0.position.is_default() {
-            self.0.position = position;
-        }
-
+        self.0.position = position;
         self
     }
 
@@ -56,6 +56,12 @@ impl Error {
     #[must_use]
     pub fn kind(&self) -> ErrorKind {
         self.0.code.kind()
+    }
+
+    #[inline]
+    #[must_use]
+    pub(crate) fn position(&self) -> Position {
+        self.0.position
     }
 
     /// Returns the line at which the error occurred.

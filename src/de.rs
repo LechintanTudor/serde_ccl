@@ -65,6 +65,15 @@ where
     fn parse_char(&mut self) -> Result<char> {
         self.parse_from_str(|| ErrorCode::InvalidChar)
     }
+
+    #[must_use]
+    fn locate_error(&self, error: Error, last_key_index: usize) -> Error {
+        if !error.position().is_default() {
+            return error;
+        }
+
+        error.with_position(self.parser.position_of_index(last_key_index))
+    }
 }
 
 #[must_use]
@@ -385,7 +394,7 @@ where
 
         visitor
             .visit_seq(KeyValueAccess::new(self))
-            .map_err(|e| e.with_position(self.parser.position_of_index(last_key_index)))
+            .map_err(|e| self.locate_error(e, last_key_index))
     }
 
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
@@ -415,7 +424,7 @@ where
 
         visitor
             .visit_map(KeyValueAccess::new(self))
-            .map_err(|e| e.with_position(self.parser.position_of_index(last_key_index)))
+            .map_err(|e| self.locate_error(e, last_key_index))
     }
 
     fn deserialize_struct<V>(
@@ -443,7 +452,7 @@ where
 
         visitor
             .visit_enum(KeyValueAccess::new(self))
-            .map_err(|e| e.with_position(self.parser.position_of_index(last_key_index)))
+            .map_err(|e| self.locate_error(e, last_key_index))
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>

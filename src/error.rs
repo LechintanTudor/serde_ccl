@@ -52,6 +52,7 @@ impl Error {
         self
     }
 
+    /// Returns the kind of error that occurred.
     #[inline]
     #[must_use]
     pub fn kind(&self) -> ErrorKind {

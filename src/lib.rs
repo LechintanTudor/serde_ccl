@@ -34,7 +34,7 @@ use crate::de::Deserializer;
 use crate::parser::{SliceParser, StrParser};
 use serde::de::Deserialize;
 
-/// Deserialize the value from a byte slice.
+/// Deserializes the value from a byte slice.
 pub fn from_slice<'a, T>(data: &'a [u8]) -> Result<T>
 where
     T: Deserialize<'a>,
@@ -43,7 +43,7 @@ where
     T::deserialize(&mut Deserializer::new(parser))
 }
 
-/// Deserialize the value from a string.
+/// Deserializes the value from a string.
 pub fn from_str<'a, T>(data: &'a str) -> Result<T>
 where
     T: Deserialize<'a>,

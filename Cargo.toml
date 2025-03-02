@@ -19,6 +19,7 @@ default = ["std"]
 std = ["memchr/std", "serde/std"]
 
 [lints.rust]
+missing-docs = "warn"
 private-interfaces = "allow"
 
 [lints.clippy]

@@ -1,6 +1,6 @@
 [package]
 name = "serde_ccl"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Serde-based deserializer for CCL Documents"
 authors = ["Tudor-Cristian Lechințan <lechintantudor02@gmail.com>"]

@@ -3,7 +3,7 @@ use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use core::error::Error as CoreError;
 use core::fmt;
-use serde::de;
+use serde::{de, ser};
 
 /// Result type returned by functions that can fail.
 pub type Result<T> = ::core::result::Result<T, Error>;
@@ -81,6 +81,18 @@ impl Error {
 }
 
 impl de::Error for Error {
+    fn custom<T>(message: T) -> Self
+    where
+        T: fmt::Display,
+    {
+        Self(Box::new(ErrorImpl {
+            code: ErrorCode::Message(message.to_string()),
+            position: Position::default(),
+        }))
+    }
+}
+
+impl ser::Error for Error {
     fn custom<T>(message: T) -> Self
     where
         T: fmt::Display,

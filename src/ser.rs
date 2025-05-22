@@ -116,7 +116,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         Ok(())
     }
 
-    fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
+    fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok, Self::Error> {
         todo!()
     }
 
@@ -140,35 +140,35 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         Ok(self)
     }
 
-    fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
         Ok(self)
     }
 
     fn serialize_struct(
         self,
-        name: &'static str,
+        _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
         self.serialize_map(Some(len))
     }
 
-    fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
+    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
         todo!()
     }
 
     fn serialize_unit_variant(
         self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
         todo!()
     }
 
     fn serialize_newtype_struct<T>(
         self,
-        name: &'static str,
-        value: &T,
+        _name: &'static str,
+        _value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
         T: ?Sized + Serialize,
@@ -178,10 +178,10 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
     fn serialize_newtype_variant<T>(
         self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        value: &T,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
         T: ?Sized + Serialize,
@@ -195,28 +195,28 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
     fn serialize_tuple_struct(
         self,
-        name: &'static str,
-        len: usize,
+        _name: &'static str,
+        _len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
         todo!()
     }
 
     fn serialize_tuple_variant(
         self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        len: usize,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
         todo!()
     }
 
     fn serialize_struct_variant(
         self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        len: usize,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
         todo!()
     }
@@ -303,11 +303,13 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use crate::{from_str, to_string};
 
     #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
     struct Test {
-        a: u8,
+        a: Option<u8>,
         b: bool,
         c: String,
     }
@@ -315,37 +317,41 @@ mod tests {
     #[test]
     fn serialize_struct() {
         let t = Test {
-            a: 1,
+            a: Some(1),
             b: true,
             c: "test".to_string(),
         };
         let s = to_string(&t);
         assert!(s.is_ok());
-        assert_eq!(s.unwrap(), "a = 1\nb = true\nc = test\n")
+        let s = s.unwrap();
+        let d: Test = from_str(&s).unwrap();
+        assert_eq!(d, t)
     }
 
     #[test]
     fn serialize_map() {
-        let mut map = std::collections::BTreeMap::new();
-        map.insert("a", 1);
-        map.insert("b", 2);
-        map.insert("c", 3);
+        let mut map = BTreeMap::new();
+        map.insert("a".to_owned(), 1);
+        map.insert("b".to_owned(), 2);
+        map.insert("c".to_owned(), 3);
 
         let s = to_string(&map);
         assert!(s.is_ok());
-        assert_eq!(s.unwrap(), "a = 1\nb = 2\nc = 3\n")
+        let s = s.unwrap();
+        let d: BTreeMap<String, i32> = from_str(&s).unwrap();
+        assert_eq!(d, map);
     }
 
     #[test]
-    fn serialize_hard() {
+    fn serialize_vec_structs() {
         let seq = vec![
             Test {
-                a: 1,
+                a: Some(1),
                 b: true,
                 c: "test".to_string(),
             },
             Test {
-                a: 2,
+                a: None,
                 b: false,
                 c: "test2".to_string(),
             },

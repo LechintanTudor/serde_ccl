@@ -1,5 +1,6 @@
 use crate::error::{Error, ErrorCode, Result};
 use crate::parser::{IndentState, Parser};
+use crate::{SliceParser, StrParser};
 use core::str::FromStr;
 use serde::de;
 
@@ -8,6 +9,24 @@ pub(crate) struct Deserializer<P> {
     parser: P,
     is_first: bool,
     should_parse_value: bool,
+}
+
+/// Deserializes the value from a byte slice.
+pub fn from_slice<'a, T>(data: &'a [u8]) -> Result<T>
+where
+    T: serde::Deserialize<'a>,
+{
+    let parser = SliceParser::new(data);
+    T::deserialize(&mut Deserializer::new(parser))
+}
+
+/// Deserializes the value from a string.
+pub fn from_str<'a, T>(data: &'a str) -> Result<T>
+where
+    T: serde::Deserialize<'a>,
+{
+    let parser = StrParser::new(data);
+    T::deserialize(&mut Deserializer::new(parser))
 }
 
 impl<'a, P> Deserializer<P>

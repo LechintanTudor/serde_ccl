@@ -25,3 +25,6 @@ private-interfaces = "allow"
 [lints.clippy]
 pedantic = { priority = -1, level = "warn" }
 missing-errors-doc = "allow"
+
+[dev-dependencies]
+serde = { version = "1.0", features = ["derive"] }

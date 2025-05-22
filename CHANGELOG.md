@@ -4,9 +4,9 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - yyyy-mm-dd
+## [0.1.2] - yyyy-mm-dd
 
-- ...
+- Basic serialization capabilities: Primitives, Structs, Maps and Vecs
 
 ## [0.1.1] - 2025-03-04
 

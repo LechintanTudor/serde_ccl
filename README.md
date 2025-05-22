@@ -45,7 +45,7 @@ fn main() {
 
 ## License
 
-Sparsey is dual-licensed under either
+serde_ccl is dual-licensed under either
 
 - MIT License ([LICENSE-MIT](LICENSE-MIT) or
   [https://opensource.org/license/mit/](https://opensource.org/license/mit/))

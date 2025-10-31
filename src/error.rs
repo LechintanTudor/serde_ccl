@@ -3,7 +3,7 @@ use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use core::error::Error as CoreError;
 use core::fmt;
-use serde::de;
+use serde_core::de;
 
 /// Result type returned by functions that can fail.
 pub type Result<T> = ::core::result::Result<T, Error>;

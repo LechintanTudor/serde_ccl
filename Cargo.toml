@@ -12,14 +12,16 @@ readme = "README.md"
 
 [dependencies]
 memchr = { version = "2.3", default-features = false }
-serde = { version = "1.0", default-features = false }
+serde_core = { version = "1.0", default-features = false }
+
+[dev-dependencies]
+serde = { version = "1.0", features = ["derive"] }
 
 [features]
 default = ["std"]
-std = ["memchr/std", "serde/std"]
+std = ["memchr/std", "serde_core/std"]
 
 [lints.rust]
-missing-docs = "warn"
 private-interfaces = "allow"
 
 [lints.clippy]

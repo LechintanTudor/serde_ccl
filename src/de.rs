@@ -1,13 +1,19 @@
 use crate::error::{Error, ErrorCode, Result};
 use crate::parser::{IndentState, Parser};
 use core::str::FromStr;
-use serde::de;
+use serde_core::de;
 
 #[must_use]
 pub(crate) struct Deserializer<P> {
     parser: P,
     is_first: bool,
-    should_parse_value: bool,
+    next_to_parse: ElemType,
+}
+
+#[derive(Clone, Copy)]
+enum ElemType {
+    Key,
+    Value,
 }
 
 impl<'a, P> Deserializer<P>
@@ -18,15 +24,14 @@ where
         Self {
             parser,
             is_first: true,
-            should_parse_value: false,
+            next_to_parse: ElemType::Key,
         }
     }
 
     fn parse(&mut self) -> Result<&'a str> {
-        if self.should_parse_value {
-            self.parser.parse_value()
-        } else {
-            self.parser.parse_key()
+        match self.next_to_parse {
+            ElemType::Key => self.parser.parse_key(),
+            ElemType::Value => self.parser.parse_value(),
         }
     }
 
@@ -125,7 +130,7 @@ where
             return Ok(None);
         }
 
-        self.de.should_parse_value = false;
+        self.de.next_to_parse = ElemType::Key;
         seed.deserialize(&mut *self.de).map(Some)
     }
 
@@ -133,7 +138,7 @@ where
     where
         V: de::DeserializeSeed<'de>,
     {
-        self.de.should_parse_value = true;
+        self.de.next_to_parse = ElemType::Value;
         seed.deserialize(&mut *self.de)
     }
 }
@@ -166,7 +171,7 @@ where
                 continue;
             }
 
-            self.de.should_parse_value = true;
+            self.de.next_to_parse = ElemType::Value;
             break seed.deserialize(&mut *self.de).map(Some);
         }
     }
@@ -184,7 +189,7 @@ where
     where
         V: de::DeserializeSeed<'de>,
     {
-        self.de.should_parse_value = false;
+        self.de.next_to_parse = ElemType::Key;
         let key = seed.deserialize(&mut *self.de)?;
         Ok((key, KeyValueAccess::new(&mut *self.de)))
     }
@@ -205,6 +210,7 @@ where
     where
         T: de::DeserializeSeed<'de>,
     {
+        self.de.next_to_parse = ElemType::Value;
         seed.deserialize(self.de)
     }
 

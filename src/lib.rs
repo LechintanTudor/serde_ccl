@@ -19,6 +19,7 @@
 //! - `std` (on by default): link to the `std` crate.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![warn(missing_docs)]
 
 extern crate alloc;
 
@@ -32,7 +33,7 @@ pub use crate::error::{Error, ErrorKind, Result};
 
 use crate::de::Deserializer;
 use crate::parser::{SliceParser, StrParser};
-use serde::de::Deserialize;
+use serde_core::de::Deserialize;
 
 /// Deserializes the value from a byte slice.
 pub fn from_slice<'a, T>(data: &'a [u8]) -> Result<T>

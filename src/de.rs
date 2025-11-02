@@ -330,14 +330,14 @@ where
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_str(self.parse()?)
+        visitor.visit_borrowed_str(self.parse()?)
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_str(self.parse()?)
+        visitor.visit_borrowed_str(self.parse()?)
     }
 
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>

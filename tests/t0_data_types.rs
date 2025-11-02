@@ -1,4 +1,8 @@
-const CCL: &str = r"bool = true
+use serde::Deserialize;
+use std::collections::BTreeMap;
+
+const CCL: &str = r"
+bool = true
 char = a
 i32 = -1
 u32 = 1
@@ -30,9 +34,6 @@ map =
     1 = 1
 ";
 
-use serde::Deserialize;
-use std::collections::BTreeMap;
-
 #[derive(Deserialize)]
 struct Struct {
     bool: bool,
@@ -60,7 +61,7 @@ enum Enum {
 }
 
 #[test]
-fn test_all() {
+fn test_data_types() {
     let data = serde_ccl::from_str::<Struct>(CCL).unwrap();
 
     // Primitives
@@ -68,7 +69,7 @@ fn test_all() {
     assert_eq!(data.char, 'a');
     assert_eq!(data.i32, -1);
     assert_eq!(data.u32, 1);
-    assert!(0.99 < data.f32 && data.f32 < 1.1);
+    assert!(0.99 < data.f32 && data.f32 < 1.01);
     assert_eq!(data.str, "str");
 
     // Options

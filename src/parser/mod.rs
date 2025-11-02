@@ -25,9 +25,8 @@ pub(crate) trait Parser<'a> {
     fn last_key_indent(&self) -> u32;
 
     #[must_use]
-    #[allow(clippy::cast_sign_loss)]
     unsafe fn index_of_ptr(&self, ptr: *const u8) -> usize {
-        ptr.offset_from(self.data().as_ptr()) as usize
+        ptr.offset_from_unsigned(self.data().as_ptr())
     }
 
     #[must_use]

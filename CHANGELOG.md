@@ -6,7 +6,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased] - yyyy-mm-dd
 
-- ...
+- TODO
+
+## [0.1.2] - 2025-11-02
+
+- Replace `serde` with `serde_core`.
+- Fix enum deserialization.
 
 ## [0.1.1] - 2025-03-04
 
@@ -18,5 +23,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Initial version.
 
 [Unreleased]: https://github.com/LechintanTudor/serde_ccl/compare/v0.1.1...HEAD
+[0.1.2]: https://github.com/LechintanTudor/serde_ccl/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/LechintanTudor/serde_ccl/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/LechintanTudor/serde_ccl/releases/tag/v0.1.0

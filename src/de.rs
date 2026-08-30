@@ -96,12 +96,7 @@ where
 
         let key_indent = if de.is_first {
             de.is_first = false;
-
-            if key_indent == 0 {
-                0
-            } else {
-                key_indent + 1
-            }
+            if key_indent == 0 { 0 } else { key_indent + 1 }
         } else {
             key_indent + 1
         };

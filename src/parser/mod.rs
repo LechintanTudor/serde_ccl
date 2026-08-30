@@ -26,7 +26,8 @@ pub(crate) trait Parser<'a> {
 
     #[must_use]
     unsafe fn index_of_ptr(&self, ptr: *const u8) -> usize {
-        ptr.offset_from_unsigned(self.data().as_ptr())
+        let data_ptr = self.data().as_ptr();
+        unsafe { ptr.offset_from_unsigned(data_ptr) }
     }
 
     #[must_use]
@@ -45,7 +46,8 @@ pub(crate) trait Parser<'a> {
 
     #[must_use]
     unsafe fn position_of_ptr(&self, ptr: *const u8) -> Position {
-        self.position_of_index(self.index_of_ptr(ptr))
+        let ptr_index = unsafe { self.index_of_ptr(ptr) };
+        self.position_of_index(ptr_index)
     }
 }
 

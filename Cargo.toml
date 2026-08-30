@@ -22,8 +22,8 @@ default = ["std"]
 std = ["memchr/std", "serde_core/std"]
 
 [lints.rust]
-private-interfaces = "allow"
+private_interfaces = "allow"
 
 [lints.clippy]
 pedantic = { priority = -1, level = "warn" }
-missing-errors-doc = "allow"
+missing_errors_doc = "allow"

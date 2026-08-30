@@ -8,6 +8,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - TODO
 
+## [0.2.0] - 2026-10-30
+
+- Update Rust version to 2024.
+- Fix some clippy lints.
+
 ## [0.1.2] - 2025-11-02
 
 - Replace `serde` with `serde_core`.
